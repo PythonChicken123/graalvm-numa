@@ -1,8 +1,8 @@
 # ----------------------------------
 # Pterodactyl Core Dockerfile
-# Environment: Java (GraalVM)
+# Environment: Java (GraalVM with NUMA support)
 # Minimum Panel Version: 1.7.0
-# Base: Debian Bookworm Slim (lighter than Ubuntu)
+# Base: Debian Bookworm Slim
 # ----------------------------------
 FROM debian:bookworm-slim
 
@@ -42,20 +42,11 @@ ENV JAVA_HOME=/opt/java/graalvm \
 # Step 2 - add pterodactyl user
 RUN useradd -d /home/container -m container
 
-USER        container
-ENV         USER=container HOME=/home/container
+USER container
+ENV USER=container HOME=/home/container
 
-WORKDIR     /home/container
+WORKDIR /home/container
 
-COPY        ./../entrypoint.sh /entrypoint.sh
+COPY ./../entrypoint.sh /entrypoint.sh
 
-CMD         ["/bin/bash", "/entrypoint.sh"]
-
-USER        container
-ENV         USER=container HOME=/home/container
-
-WORKDIR     /home/container
-
-COPY        ./../entrypoint.sh /entrypoint.sh
-
-CMD         ["/bin/bash", "/entrypoint.sh"]
+CMD ["/bin/bash", "/entrypoint.sh"]
