@@ -8,7 +8,7 @@ on:
 
 jobs:
   pterodactyl-graalvm:
-    name: "pterodactyl-graalvm:${{ matrix.tag }}"
+    name: "graalvm-numa:${{ matrix.tag }}"
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -39,10 +39,8 @@ jobs:
         id: meta_graalvm
         uses: docker/metadata-action@v4
         with:
-          # list of Docker images to use as base name for tags
           images: |
-            ghcr.io/rikodev/pterodactyl-graalvm
-          # generate Docker tags based on the following events/attributes
+            ghcr.io/${{ github.repository_owner }}/graalvm-numa
           tags: |
             type=raw,${{ matrix.tag }}
             
