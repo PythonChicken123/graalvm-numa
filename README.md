@@ -9,10 +9,10 @@ ___
 
 ## Docker Container Configuration
 
-| Java | Standard                               	| JDK                                        	 | Enterprise                                	 |
-|------|----------------------------------------	|----------------------------------------------|---------------------------------------------|
-| 24   | ✅                                   	  | `ghcr.io/rikodev/pterodactyl-graalvm:24-JDK` | ❌                                          |
-| 25   | ✅                                     	| `ghcr.io/rikodev/pterodactyl-graalvm:25-JDK` | ❌                                          |
+| Java | Standard                               	| JDK                                        	   | Enterprise                                	 |
+|------|----------------------------------------	|------------------------------------------------|---------------------------------------------|
+| 24   | ✅                                   	  | `ghcr.io/pythonchicken123/graalvm-numa:24-jdk` | ❌                                          |
+| 25   | ✅                                     	| `ghcr.io/pythonchicken123/graalvm-numa:25-jdk` | ❌                                          |
 
 ___
 
