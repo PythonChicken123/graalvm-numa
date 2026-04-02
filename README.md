@@ -1,4 +1,6 @@
-![Build Graalvm](https://github.com/RikoDEV/pterodactyl-graalvm/actions/workflows/docker-image.yml/badge.svg)
+# Pterodactyl GraalVM Dockerfiles with NUMA Support
+
+![Build Graalvm](https://github.com/PythonChicken123/graalvm-numa/actions/workflows/docker-image.yml/badge.svg)
 ![MIT License](https://img.shields.io/badge/license-MIT-green)
 
 GraalVM is a high-performance runtime that provides significant improvements in application performance and efficiency which is ideal for microservices. https://www.graalvm.org/
