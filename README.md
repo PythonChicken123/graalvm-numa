@@ -9,8 +9,8 @@ ___
 
 | Java | Standard                               	| JDK                                        	 | Enterprise                                	 |
 |------|----------------------------------------	|----------------------------------------------|---------------------------------------------|
-| 24   | ❌                                   	  | `ghcr.io/rikodev/pterodactyl-graalvm:24-JDK` | ❌                                          |
-| 25   | ❌                                     	| `ghcr.io/rikodev/pterodactyl-graalvm:25-JDK` | ❌                                          |
+| 24   | ✅                                   	  | `ghcr.io/rikodev/pterodactyl-graalvm:24-JDK` | ❌                                          |
+| 25   | ✅                                     	| `ghcr.io/rikodev/pterodactyl-graalvm:25-JDK` | ❌                                          |
 
 ___
 
