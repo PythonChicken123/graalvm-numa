@@ -10,7 +10,7 @@ ARG TARGETPLATFORM
 ARG GRAAL_VERSION=25.0.1
 ARG JAVA_VERSION=25
 
-MAINTAINER EchoRuins, <contact@echoruins.com>
+LABEL maintainer="EchoRuins, <contact@echoruins.com>"
 
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -20,7 +20,7 @@ ENV LANG='en_US.UTF-8' LANGUAGE='en_US:en' LC_ALL='en_US.UTF-8'
 RUN apt-get update -y \
     && apt-get install -y --no-install-recommends \
         curl ca-certificates openssl git tar sqlite3 fontconfig tzdata locales iproute2 \
-        libnuma1 \      # <-- NUMA support added here
+        libnuma1 \
     && echo "en_US.UTF-8 UTF-8" >> /etc/locale.gen \
     && locale-gen en_US.UTF-8 \
     && case ${TARGETPLATFORM} in \
@@ -41,6 +41,15 @@ ENV JAVA_HOME=/opt/java/graalvm \
 
 # Step 2 - add pterodactyl user
 RUN useradd -d /home/container -m container
+
+USER        container
+ENV         USER=container HOME=/home/container
+
+WORKDIR     /home/container
+
+COPY        ./../entrypoint.sh /entrypoint.sh
+
+CMD         ["/bin/bash", "/entrypoint.sh"]
 
 USER        container
 ENV         USER=container HOME=/home/container
