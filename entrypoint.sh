@@ -15,13 +15,31 @@ cd /home/container || exit 1
 printf "\033[1m\033[33mcontainer@pterodactyl~ \033[0mjava -version\n"
 java -version
 
-# Convert all of the "{{VARIABLE}}" parts of the command into the expected shell
-# variable format of "${VARIABLE}" before evaluating the string and automatically
-# replacing the values.
+# Helper: check if NUMA is usable
+check_numa() {
+    if [[ "${NUMA_ENABLED}" == "1" ]]; then
+        if /usr/local/bin/check-numa; then
+            echo "-XX:+UseNUMA"
+        else
+            echo "NUMA requested but not available – disabling" >&2
+            echo ""
+        fi
+    else
+        echo ""
+    fi
+}
+
+# Build the final startup command
+# The egg provides STARTUP with placeholders like {{SERVER_JARFILE}}, {{MEMORY}}, etc.
+# We also inject the NUMA flag if enabled.
 PARSED=$(echo "${STARTUP}" | sed -e 's/{{/${/g' -e 's/}}/}/g' | eval echo "$(cat -)")
 
-# Display the command we're running in the output, and then execute it with the env
-# from the container itself.
+# Insert NUMA flag before the -jar part (simple approach: add to beginning of java command)
+if [[ -n "$(check_numa)" ]]; then
+    PARSED=$(echo "$PARSED" | sed "s/java /java $(check_numa) /")
+fi
+
+# Display the command we're running
 printf "\033[1m\033[33mcontainer@pterodactyl~ \033[0m%s\n" "$PARSED"
 # shellcheck disable=SC2086
-eval ${PARSED}
+exec env ${PARSED}
