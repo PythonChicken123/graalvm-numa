@@ -1,6 +1,6 @@
 # ----------------------------------
 # Pterodactyl Core Dockerfile
-# Environment: Java (GraalVM with NUMA support)
+# Environment: Java (GraalVM with optional NUMA support)
 # Minimum Panel Version: 1.7.0
 # Base: Debian Bookworm Slim
 # ----------------------------------
@@ -20,6 +20,8 @@ ENV LANG='en_US.UTF-8' LANGUAGE='en_US:en' LC_ALL='en_US.UTF-8'
 RUN apt-get update -y \
     && apt-get install -y --no-install-recommends \
         curl ca-certificates openssl git tar sqlite3 fontconfig tzdata locales iproute2 \
+        jq unzip lsof \
+        # NUMA library (optional, but installed so the JVM can find it)
         libnuma1 \
     && echo "en_US.UTF-8 UTF-8" >> /etc/locale.gen \
     && locale-gen en_US.UTF-8 \
@@ -38,6 +40,10 @@ RUN apt-get update -y \
 
 ENV JAVA_HOME=/opt/java/graalvm \
     PATH="/opt/java/graalvm/bin:$PATH"
+
+# Create a tiny helper to check NUMA availability (returns 0 if NUMA works)
+RUN echo '#!/bin/bash\n/opt/java/graalvm/bin/java -XX:+UseNUMA -version 2>&1 | grep -q "NUMA support enabled" && exit 0 || exit 1' > /usr/local/bin/check-numa \
+    && chmod +x /usr/local/bin/check-numa
 
 # Step 2 - add pterodactyl user
 RUN useradd -d /home/container -m container
