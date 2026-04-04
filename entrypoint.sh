@@ -45,27 +45,34 @@ fi
 # ---------- Automatic Updating (Leaf only) ----------
 if [[ "${AUTOMATIC_UPDATING}" == "1" && "${SOFTWARE}" == "LEAF" ]]; then
     echo -e "\033[1m\033[33mcontainer@pterodactyl~ \033[0mChecking for Leaf updates..."
-    # We'll use the jar's manifest or a version file.
-    # Assuming the jar is named server.jar. We'll query the API for the latest build of the same Minecraft version.
-    if [ -f "server.jar" ]; then
-        # Try to extract Minecraft version from the jar's filename (if saved as leaf-1.21.11-97.jar)
-        CURRENT_JAR=$(basename server.jar)
-        if [[ "$CURRENT_JAR" =~ leaf-([0-9.]+)-([0-9]+)\.jar ]]; then
-            MC_VERSION="${BASH_REMATCH[1]}"
-            CURRENT_BUILD="${BASH_REMATCH[2]}"
-        else
-            # Fallback: read from version_history.json or leaf-version.json (if present)
-            if [ -f "version_history.json" ]; then
-                MC_VERSION=$(jq -r '.minecraftVersion' version_history.json 2>/dev/null)
-                CURRENT_BUILD=$(jq -r '.buildNumber' version_history.json 2>/dev/null)
-            else
-                echo -e "\033[1m\033[33mcontainer@pterodactyl~ \033[0mCould not determine current Leaf version, skipping update."
-                MC_VERSION=""
+
+    # Try to get current version from version_history.json (created by Leaf)
+    MC_VERSION=""
+    CURRENT_BUILD=""
+    if [ -f "version_history.json" ]; then
+        MC_VERSION=$(jq -r '.minecraftVersion // empty' version_history.json 2>/dev/null)
+        CURRENT_BUILD=$(jq -r '.buildNumber // empty' version_history.json 2>/dev/null)
+    fi
+
+    # If not found, try to get from the jar's manifest (META-INF/MANIFEST.MF)
+    if [[ -z "$MC_VERSION" || -z "$CURRENT_BUILD" ]]; then
+        if [ -f "server.jar" ]; then
+            MANIFEST_VERSION=$(unzip -p server.jar META-INF/MANIFEST.MF 2>/dev/null | grep "Implementation-Version" | cut -d' ' -f2 | tr -d '\r')
+            if [[ -n "$MANIFEST_VERSION" ]]; then
+                MC_VERSION=$(echo "$MANIFEST_VERSION" | cut -d'-' -f1)
+                CURRENT_BUILD=$(echo "$MANIFEST_VERSION" | cut -d'-' -f2)
             fi
         fi
-        if [[ -n "$MC_VERSION" ]]; then
-            LATEST_BUILD=$(curl -s "https://api.leafmc.one/v2/projects/leaf/versions/${MC_VERSION}" | jq -r '.builds | max')
-            if [[ -n "$LATEST_BUILD" && "$LATEST_BUILD" != "null" && "$LATEST_BUILD" -gt "$CURRENT_BUILD" ]]; then
+    fi
+
+    if [[ -z "$MC_VERSION" ]]; then
+        echo -e "\033[1m\033[33mcontainer@pterodactyl~ \033[0mCould not determine current Leaf version, skipping update."
+    else
+        # Fetch latest build from API (handle empty/null response)
+        API_RESPONSE=$(curl -s "https://api.leafmc.one/v2/projects/leaf/versions/${MC_VERSION}")
+        LATEST_BUILD=$(echo "$API_RESPONSE" | jq -r '.builds | max // empty' 2>/dev/null)
+        if [[ -n "$LATEST_BUILD" && "$LATEST_BUILD" != "null" ]]; then
+            if [[ -z "$CURRENT_BUILD" || "$CURRENT_BUILD" == "null" || "$LATEST_BUILD" -gt "$CURRENT_BUILD" ]]; then
                 echo -e "\033[1m\033[33mcontainer@pterodactyl~ \033[0mNew Leaf build found (${LATEST_BUILD}), updating..."
                 DOWNLOAD_URL="https://api.leafmc.one/v2/projects/leaf/versions/${MC_VERSION}/builds/${LATEST_BUILD}/downloads/leaf-${MC_VERSION}-${LATEST_BUILD}.jar"
                 curl -s -o server.jar "$DOWNLOAD_URL"
@@ -73,9 +80,9 @@ if [[ "${AUTOMATIC_UPDATING}" == "1" && "${SOFTWARE}" == "LEAF" ]]; then
             else
                 echo -e "\033[1m\033[33mcontainer@pterodactyl~ \033[0mAlready on latest build (${CURRENT_BUILD})."
             fi
+        else
+            echo -e "\033[1m\033[33mcontainer@pterodactyl~ \033[0mCould not fetch latest build info (API returned empty)."
         fi
-    else
-        echo -e "\033[1m\033[33mcontainer@pterodactyl~ \033[0mserver.jar not found, skipping update."
     fi
 fi
 
