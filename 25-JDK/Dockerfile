@@ -45,6 +45,13 @@ ENV JAVA_HOME=/opt/java/graalvm \
 RUN echo '#!/bin/bash\n/opt/java/graalvm/bin/java -XX:+UseNUMA -version 2>&1 | grep -q "NUMA support enabled" && exit 0 || exit 1' > /usr/local/bin/check-numa \
     && chmod +x /usr/local/bin/check-numa
 
+# Download MCAntiMalware (latest release, fallback to known version)
+RUN curl -L -o /MCAntiMalware.jar https://github.com/OpticFusion1/MCAntiMalware/releases/latest/download/MCAntiMalware.jar \
+    || curl -L -o /MCAntiMalware.jar https://github.com/OpticFusion1/MCAntiMalware/releases/download/v2.3/MCAntiMalware.jar \
+    && if [ ! -f /MCAntiMalware.jar ] || [ $(stat -c%s /MCAntiMalware.jar) -lt 100000 ]; then \
+         echo "ERROR: Failed to download MCAntiMalware" && exit 1; \
+       fi
+
 # Step 2 - add pterodactyl user
 RUN useradd -d /home/container -m container
 
