@@ -4,18 +4,18 @@
         "version": "PTDL_v2",
         "update_url": null
     },
-    "exported_at": "2026-04-04T12:00:00+00:00",
-    "name": "LeafMC Minecraft + Cross-Compatibility",
+    "exported_at": "2026-04-04T16:00:00+00:00",
+    "name": "Universal Minecraft - GraalVM",
     "author": "contact@echoruins.com",
-    "description": "Optimised Minecraft server with GraalVM, LeafMC support, and optional NUMA. Supports Leaf, Paper, Velocity, Vanilla, and many other forks via MCJars API.",
+    "description": "Optimised Minecraft server with GraalVM, LeafMC support, auto-updates, malware scan, and NUMA (enabled by default). Supports Leaf, Paper, Velocity, Vanilla, and other forks via MCJars API.",
     "features": [
         "eula",
         "java_version",
         "pid_limit"
     ],
     "docker_images": {
-        "Java 25 (GraalVM + NUMA)": "ghcr.io/pythonchicken123/graalvm-numa:25-JDK",
-        "Java 24 (GraalVM + NUMA)": "ghcr.io/pythonchicken123/graalvm-numa:24-JDK"
+        "Java 25 (GraalVM)": "ghcr.io/pythonchicken123/graalvm-numa:25-JDK",
+        "Java 24 (GraalVM)": "ghcr.io/pythonchicken123/graalvm-numa:24-JDK"
     },
     "file_denylist": [],
     "startup": "java -Dterminal.jline=false -Dterminal.ansi=true -Xms{{SERVER_MEMORY}}M -Xmx{{SERVER_MEMORY}}M {{ADDITIONAL_JVM_FLAGS}} -jar {{SERVER_JARFILE}} nogui",
@@ -27,15 +27,45 @@
     },
     "scripts": {
         "installation": {
-            "script": "#!\/bin\/bash\r\n# EchoRuins Universal Installation Script\r\n# Supports LeafMC (via GitHub API) and other forks (via MCJars API)\r\n#\r\n# Server Files: \/mnt\/server\r\n\r\nmkdir -p \/mnt\/server\r\ncd \/mnt\/server || exit 1\r\n\r\napt-get update > \/dev\/null 2>&1\r\napt-get install -y curl jq unzip > \/dev\/null 2>&1\r\n\r\nSOFTWARE=${SOFTWARE:-LEAF}\r\nVERSION=${VERSION:-latest}\r\nBUILD=${BUILD:-latest}\r\n\r\nlog_info() {\r\n    echo -e \"[INSTALL] $1\"\r\n}\r\n\r\n# ---------- LeafMC installation ----------\r\ninstall_leaf() {\r\n    log_info \"Installing LeafMC...\"\r\n    \r\n    # Map Minecraft version to Leaf project version (e.g., 1.21.8 -> 1.21.8)\r\n    MC_VERSION=\"$VERSION\"\r\n    if [ \"$MC_VERSION\" == \"latest\" ]; then\r\n        # Fetch the latest Minecraft version supported by Leaf (from API)\r\n        MC_VERSION=$(curl -s https:\/\/api.leafmc.one\/v2\/projects\/leaf\/versions | jq -r '.versions | keys | map(select(. != \"latest\")) | sort | last')\r\n    fi\r\n    \r\n    log_info \"Minecraft version: $MC_VERSION\"\r\n    \r\n    # Get the latest build ID for that Minecraft version\r\n    if [ \"$BUILD\" == \"latest\" ]; then\r\n        BUILD=$(curl -s \"https:\/\/api.leafmc.one\/v2\/projects\/leaf\/versions\/${MC_VERSION}\" | jq -r '.builds | max')\r\n    fi\r\n    \r\n    log_info \"Build: $BUILD\"\r\n    \r\n    # Download the jar\r\n    DOWNLOAD_URL=\"https:\/\/api.leafmc.one\/v2\/projects\/leaf\/versions\/${MC_VERSION}\/builds\/${BUILD}\/downloads\/leaf-${MC_VERSION}-${BUILD}.jar\"\r\n    log_info \"Downloading from $DOWNLOAD_URL\"\r\n    curl -s -o server.jar \"$DOWNLOAD_URL\"\r\n    \r\n    if [ ! -f server.jar ]; then\r\n        echo \"ERROR: Failed to download LeafMC server jar\"\r\n        exit 1\r\n    fi\r\n    \r\n    log_info \"LeafMC downloaded successfully\"\r\n}\r\n\r\n# ---------- MCJars installation (for other forks) ----------\r\ninstall_mcjars() {\r\n    log_info \"Installing $SOFTWARE via MCJars API...\"\r\n    \r\n    # Use MCJars API (same as original MCJars egg)\r\n    if [ \"$VERSION\" == \"latest\" ]; then\r\n        VERSION=$(curl -s \"https:\/\/versions.mcjars.app\/api\/v2\/builds\/$SOFTWARE\" | jq -r '.builds | to_entries | map(select(.value.type == \"RELEASE\")) | last | .key')\r\n    fi\r\n    \r\n    if [ \"$BUILD\" == \"latest\" ]; then\r\n        BUILD=$(curl -s \"https:\/\/versions.mcjars.app\/api\/v1\/builds\/$SOFTWARE\/$VERSION\/latest\" | jq -r '.build.id')\r\n    fi\r\n    \r\n    log_info \"Software: $SOFTWARE\"\r\n    log_info \"Version: $VERSION\"\r\n    log_info \"Build: $BUILD\"\r\n    \r\n    bash <(curl -s \"https:\/\/versions.mcjars.app\/api\/v1\/script\/$BUILD\/bash\")\r\n}\r\n\r\n# ---------- Main ----------\r\nif [[ \"$SOFTWARE\" == \"LEAF\" ]]; then\r\n    install_leaf\r\nelse\r\n    install_mcjars\r\nfi\r\n\r\n# Optional: modpack support (if DOWNLOAD_URL is set)\r\nif [ -n \"$DOWNLOAD_URL\" ]; then\r\n    log_info \"Downloading additional files from $DOWNLOAD_URL\"\r\n    curl -s -o extra.zip \"$DOWNLOAD_URL\"\r\n    unzip -o extra.zip > \/dev\/null 2>&1\r\n    rm extra.zip\r\nfi\r\n\r\nlog_info \"Installation complete!\"\r\n",
+            "script": "#!\/bin\/bash\r\n# EchoRuins Universal Installation Script (Optimised)\r\n# Supports LeafMC (via official API) and other forks (via MCJars API)\r\n\r\nmkdir -p \/mnt\/server\r\ncd \/mnt\/server || exit 1\r\n\r\napt-get update > \/dev\/null 2>&1\r\napt-get install -y curl jq unzip > \/dev\/null 2>&1\r\n\r\nSOFTWARE=${SOFTWARE:-LEAF}\r\nVERSION=${VERSION:-latest}\r\nBUILD=${BUILD:-latest}\r\n\r\nlog_info() {\r\n    echo -e \"[INSTALL] $1\"\r\n}\r\n\r\n# ---------- LeafMC installation (fixed latest version detection) ----------\r\ninstall_leaf() {\r\n    log_info \"Installing LeafMC...\"\r\n    \r\n    # Helper: fetch latest Minecraft version from Leaf API (with fallback to GitHub)\r\n    get_latest_leaf_version() {\r\n        local api_url=\"https:\/\/api.leafmc.one\/v2\/projects\/leaf\/versions\"\r\n        local response=$(curl -s \"$api_url\")\r\n        # Try jq filter; if fails, fallback to GitHub releases\r\n        local version=$(echo \"$response\" | jq -r '.versions | keys | map(select(. != \"latest\")) | sort_by(split(\".\") | map(tonumber)) | last' 2>\/dev\/null)\r\n        if [[ -z \"$version\" || \"$version\" == \"null\" ]]; then\r\n            # Fallback: fetch from GitHub API (latest release tag)\r\n            version=$(curl -s https:\/\/api.github.com\/repos\/Winds-Studio\/Leaf\/releases\/latest | jq -r '.tag_name' | sed 's/ver-//')\r\n        fi\r\n        echo \"$version\"\r\n    }\r\n    \r\n    # Determine Minecraft version\r\n    if [[ -z \"$VERSION\" || \"$VERSION\" == \"latest\" ]]; then\r\n        MC_VERSION=$(get_latest_leaf_version)\r\n        if [[ -z \"$MC_VERSION\" || \"$MC_VERSION\" == \"null\" ]]; then\r\n            echo \"ERROR: Could not determine latest Leaf version. Please specify a version manually (e.g., 1.21.11).\"\r\n            exit 1\r\n        fi\r\n        log_info \"Latest Minecraft version: $MC_VERSION\"\r\n    else\r\n        MC_VERSION=\"$VERSION\"\r\n        log_info \"Using specified Minecraft version: $MC_VERSION\"\r\n    fi\r\n    \r\n    # Determine build number\r\n    if [[ -z \"$BUILD\" || \"$BUILD\" == \"latest\" ]]; then\r\n        BUILD=$(curl -s \"https:\/\/api.leafmc.one\/v2\/projects\/leaf\/versions\/${MC_VERSION}\" | jq -r '.builds | max')\r\n        if [[ -z \"$BUILD\" || \"$BUILD\" == \"null\" ]]; then\r\n            echo \"ERROR: Could not fetch latest build for version $MC_VERSION. Check that the version exists.\"\r\n            exit 1\r\n        fi\r\n        log_info \"Latest build: $BUILD\"\r\n    else\r\n        log_info \"Using specified build: $BUILD\"\r\n    fi\r\n    \r\n    # Download the jar\r\n    DOWNLOAD_URL=\"https:\/\/api.leafmc.one\/v2\/projects\/leaf\/versions\/${MC_VERSION}\/builds\/${BUILD}\/downloads\/leaf-${MC_VERSION}-${BUILD}.jar\"\r\n    log_info \"Downloading from $DOWNLOAD_URL\"\r\n    HTTP_CODE=$(curl -s -o server.jar -w \"%{http_code}\" \"$DOWNLOAD_URL\")\r\n    \r\n    if [[ \"$HTTP_CODE\" != \"200\" ]]; then\r\n        echo \"ERROR: Failed to download LeafMC server jar (HTTP $HTTP_CODE).\"\r\n        exit 1\r\n    fi\r\n    \r\n    if [[ ! -f server.jar || $(stat -c%s server.jar) -lt 1000000 ]]; then\r\n        echo \"ERROR: Downloaded file is too small or missing.\"\r\n        exit 1\r\n    fi\r\n    \r\n    log_info \"LeafMC downloaded successfully (size: $(stat -c%s server.jar) bytes).\"\r\n}\r\n\r\n# ---------- MCJars installation (for other forks) ----------\r\ninstall_mcjars() {\r\n    log_info \"Installing $SOFTWARE via MCJars API...\"\r\n    \r\n    if [[ \"$VERSION\" == \"latest\" ]]; then\r\n        VERSION=$(curl -s \"https:\/\/versions.mcjars.app\/api\/v2\/builds\/$SOFTWARE\" | jq -r '.builds | to_entries | map(select(.value.type == \"RELEASE\")) | last | .key')\r\n        if [[ -z \"$VERSION\" || \"$VERSION\" == \"null\" ]]; then\r\n            echo \"ERROR: Could not determine latest version for $SOFTWARE\"\r\n            exit 1\r\n        fi\r\n    fi\r\n    \r\n    if [[ \"$BUILD\" == \"latest\" ]]; then\r\n        BUILD=$(curl -s \"https:\/\/versions.mcjars.app\/api\/v1\/builds\/$SOFTWARE\/$VERSION\/latest\" | jq -r '.build.id')\r\n        if [[ -z \"$BUILD\" || \"$BUILD\" == \"null\" ]]; then\r\n            echo \"ERROR: Could not determine latest build for $SOFTWARE $VERSION\"\r\n            exit 1\r\n        fi\r\n    fi\r\n    \r\n    log_info \"Software: $SOFTWARE\"\r\n    log_info \"Version: $VERSION\"\r\n    log_info \"Build: $BUILD\"\r\n    \r\n    bash <(curl -s \"https:\/\/versions.mcjars.app\/api\/v1\/script\/$BUILD\/bash\")\r\n    \r\n    if [[ ! -f server.jar ]]; then\r\n        echo \"ERROR: MCJars installation did not produce server.jar\"\r\n        exit 1\r\n    fi\r\n    \r\n    log_info \"MCJars installation completed.\"\r\n}\r\n\r\n# ---------- Main ----------\r\nif [[ \"$SOFTWARE\" == \"LEAF\" ]]; then\r\n    install_leaf\r\nelse\r\n    install_mcjars\r\nfi\r\n\r\nlog_info \"Installation complete!\"\r\n",
             "container": "ghcr.io\/pterodactyl\/installers:debian",
             "entrypoint": "bash"
         }
     },
     "variables": [
         {
+            "name": "Software",
+            "description": "Server software: LEAF (default), PAPER, VELOCITY, VANILLA, etc. Case‑sensitive. Leaf uses its own API; others use MCJars.",
+            "env_variable": "SOFTWARE",
+            "default_value": "LEAF",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string|max:20|uppercase",
+            "field_type": "text"
+        },
+        {
+            "name": "Version",
+            "description": "Minecraft version (e.g., 1.21.11, 1.20.4). 'latest' uses newest stable version (Leaf: detected via API, others via MCJars).",
+            "env_variable": "VERSION",
+            "default_value": "latest",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "nullable|string",
+            "field_type": "text"
+        },
+        {
+            "name": "Build ID",
+            "description": "Specific build ID (e.g., 97 for Leaf, or numeric ID for MCJars). 'latest' uses newest build.",
+            "env_variable": "BUILD",
+            "default_value": "latest",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "nullable|string",
+            "field_type": "text"
+        },
+        {
             "name": "Server Jar File",
-            "description": "The name of the server jarfile to run the server with.",
+            "description": "The name of the server jarfile to run (usually server.jar).",
             "env_variable": "SERVER_JARFILE",
             "default_value": "server.jar",
             "user_viewable": true,
@@ -45,12 +75,32 @@
         },
         {
             "name": "Additional JVM Flags",
-            "description": "Custom JVM flags (e.g., for garbage collection or GraalVM tuning). Use 'Aikar's Flags' or 'Velocity Flags' for presets.",
+            "description": "Custom JVM flags. For optimal performance on Leaf, use: --add-modules=jdk.incubator.vector -XX:+UseZGC -XX:-ZProactive -XX:+AlwaysPreTouch -XX:+UseTransparentHugePages -XX:+UseLargePages -XX:+UseStringDeduplication -XX:+UseFMA -XX:UseAVX=2 -DLeaf.enableFMA=true -DLeaf.disable-vanilla-profiler=true",
             "env_variable": "ADDITIONAL_JVM_FLAGS",
-            "default_value": "",
+            "default_value": "--add-modules=jdk.incubator.vector -XX:+UseZGC -XX:-ZProactive -XX:+AlwaysPreTouch -XX:+UseTransparentHugePages -XX:+UseLargePages -XX:+UseStringDeduplication -XX:+UseFMA -XX:UseAVX=2 -DLeaf.enableFMA=true -DLeaf.disable-vanilla-profiler=true",
             "user_viewable": true,
             "user_editable": true,
             "rules": "nullable|string",
+            "field_type": "text"
+        },
+        {
+            "name": "Malware Scan",
+            "description": "Run MCAntiMalware scan on startup (recommended). Enabled by default.",
+            "env_variable": "MALWARE_SCAN",
+            "default_value": "1",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|boolean",
+            "field_type": "text"
+        },
+        {
+            "name": "Automatic Updating",
+            "description": "Automatically update server software on startup (works for Leaf and MCJars software).",
+            "env_variable": "AUTOMATIC_UPDATING",
+            "default_value": "1",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|boolean",
             "field_type": "text"
         },
         {
@@ -65,7 +115,7 @@
         },
         {
             "name": "Minehut Support",
-            "description": "Enable Minehut Support by adding all required flags to forward player data.",
+            "description": "Enable Minehut Support by adding required flags to forward player data.",
             "env_variable": "MINEHUT_SUPPORT",
             "default_value": "None",
             "user_viewable": true,
@@ -74,18 +124,8 @@
             "field_type": "text"
         },
         {
-            "name": "Log Prefix (Admin Only)",
-            "description": "",
-            "env_variable": "LOG_PREFIX",
-            "default_value": "\\033[1m\\033[33mcontainer@pterodactyl~\\033[0m",
-            "user_viewable": false,
-            "user_editable": false,
-            "rules": "required|string",
-            "field_type": "text"
-        },
-        {
             "name": "Java Agent",
-            "description": "ADVANCED: Set a custom java agent to use (e.g., SWM).",
+            "description": "ADVANCED: Set a custom java agent (e.g., SWM).",
             "env_variable": "JAVA_AGENT",
             "default_value": "",
             "user_viewable": true,
@@ -95,142 +135,22 @@
         },
         {
             "name": "Override Startup",
-            "description": "ADVANCED: Override the displayed startup command to support all other variables.",
+            "description": "ADVANCED: Override the displayed startup command. Leave as 1.",
             "env_variable": "OVERRIDE_STARTUP",
             "default_value": "1",
-            "user_viewable": true,
-            "user_editable": false,
-            "rules": "required|boolean",
-            "field_type": "text"
-        },
-        {
-            "name": "Automatic Updating",
-            "description": "ADVANCED: Automatically update your server software to the latest build (only for MCJars software).",
-            "env_variable": "AUTOMATIC_UPDATING",
-            "default_value": "0",
-            "user_viewable": true,
-            "user_editable": true,
-            "rules": "required|boolean",
-            "field_type": "text"
-        },
-        {
-            "name": "SIMD Operations Support",
-            "description": "Add --add-modules=jdk.incubator.vector (Java 16-21 only).",
-            "env_variable": "SIMD_OPERATIONS",
-            "default_value": "0",
-            "user_viewable": true,
-            "user_editable": true,
-            "rules": "required|boolean",
-            "field_type": "text"
-        },
-        {
-            "name": "Remove Update Warning",
-            "description": "Removes the 20 second Spigot update warning.",
-            "env_variable": "REMOVE_UPDATE_WARNING",
-            "default_value": "0",
-            "user_viewable": true,
-            "user_editable": true,
-            "rules": "required|boolean",
-            "field_type": "text"
-        },
-        {
-            "name": "Malware Scan",
-            "description": "Run MCAntiMalware scan on startup (requires Java 17+).",
-            "env_variable": "MALWARE_SCAN",
-            "default_value": "0",
-            "user_viewable": true,
-            "user_editable": true,
-            "rules": "required|boolean",
-            "field_type": "text"
-        },
-        {
-            "name": "Software",
-            "description": "Server software: LEAF, PAPER, VELOCITY, VANILLA, etc. (case‑sensitive). For Leaf, uses Leaf API; others use MCJars.",
-            "env_variable": "SOFTWARE",
-            "default_value": "LEAF",
-            "user_viewable": true,
-            "user_editable": true,
-            "rules": "required|string|max:20|uppercase",
-            "field_type": "text"
-        },
-        {
-            "name": "Build ID",
-            "description": "Specific build ID (e.g., 97 for Leaf, or numeric ID for MCJars). 'latest' uses newest.",
-            "env_variable": "BUILD",
-            "default_value": "latest",
-            "user_viewable": true,
-            "user_editable": true,
-            "rules": "nullable|string",
-            "field_type": "text"
-        },
-        {
-            "name": "Version",
-            "description": "Minecraft version (e.g., 1.21.8, 1.20.4). 'latest' uses newest stable version.",
-            "env_variable": "VERSION",
-            "default_value": "latest",
-            "user_viewable": true,
-            "user_editable": true,
-            "rules": "nullable|string",
-            "field_type": "text"
-        },
-        {
-            "name": "MCJars API Key",
-            "description": "Optional: MCJars API key for authenticated requests (increases rate limits).",
-            "env_variable": "MCJARS_API_KEY",
-            "default_value": "",
             "user_viewable": false,
             "user_editable": false,
-            "rules": "nullable|string",
-            "field_type": "text"
-        },
-        {
-            "name": "CurseForge API Key",
-            "description": "Optional: CurseForge API key for automatic mod downloading (modpack support).",
-            "env_variable": "CURSEFORGE_API_KEY",
-            "default_value": "",
-            "user_viewable": false,
-            "user_editable": false,
-            "rules": "nullable|string",
-            "field_type": "text"
-        },
-        {
-            "name": "Modrinth API Key",
-            "description": "Optional: Modrinth API key for authenticated requests.",
-            "env_variable": "MODRINTH_API_KEY",
-            "default_value": "",
-            "user_viewable": false,
-            "user_editable": false,
-            "rules": "nullable|string",
-            "field_type": "text"
-        },
-        {
-            "name": "Modpack source",
-            "description": "Source for modpack (curseforge, modrinth). Leave empty to skip.",
-            "env_variable": "MODPACK_SOURCE",
-            "default_value": "",
-            "user_viewable": true,
-            "user_editable": true,
-            "rules": "nullable|string",
-            "field_type": "text"
-        },
-        {
-            "name": "Download file",
-            "description": "Optional URL to an extra ZIP file to download and extract (e.g., modpack).",
-            "env_variable": "DOWNLOAD_URL",
-            "default_value": "",
-            "user_viewable": true,
-            "user_editable": true,
-            "rules": "nullable|string",
-            "field_type": "text"
-        },
-        {
-            "name": "NUMA Support",
-            "description": "Enable -XX:+UseNUMA (only if your CPU has multiple NUMA nodes). Disabled by default to avoid errors.",
-            "env_variable": "NUMA_ENABLED",
-            "default_value": "0",
-            "user_viewable": true,
-            "user_editable": true,
             "rules": "required|boolean",
+            "field_type": "text"
+        },
+        {
+            "name": "Log Prefix",
+            "description": "Internal log prefix. Do not change.",
+            "env_variable": "LOG_PREFIX",
+            "default_value": "\\033[1m\\033[33mcontainer@pterodactyl~\\033[0m",
+            "user_viewable": false,
+            "user_editable": false,
+            "rules": "required|string",
             "field_type": "text"
         }
     ]
