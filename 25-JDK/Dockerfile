@@ -7,7 +7,7 @@
 FROM debian:bookworm-slim
 
 ARG TARGETPLATFORM
-ARG GRAAL_VERSION=25.0.1
+ARG GRAAL_VERSION=25.0.2
 ARG JAVA_VERSION=25
 
 LABEL maintainer="EchoRuins, <contact@echoruins.com>"
