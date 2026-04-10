@@ -8,18 +8,14 @@ export TZ
 INTERNAL_IP=$(ip route get 1 | awk '{print $(NF-2);exit}')
 export INTERNAL_IP
 
-# Ensure the container user owns the home directory
-# Even as root, we want the files to be accessible if permissions shift
-chown -R container:container /home/container 2>/dev/null
-
-# Switch to the container's working directory
+# Switch to the working directory
 cd /home/container || exit 1
 
-# Print Java version for debugging
+# Print Java version
 printf "\033[1m\033[33mcontainer@pterodactyl~ \033[0mjava -version\n"
 java -version
 
-# Helper: check if NUMA is usable via the helper script in /usr/local/bin
+# Helper: check if NUMA is usable
 check_numa() {
     if /usr/local/bin/check-numa 2>/dev/null; then
         echo "-XX:+UseNUMA"
@@ -117,11 +113,11 @@ PARSED=$(eval echo -e "${MODIFIED_STARTUP}")
 # Force NUMA flag insertion if check-numa passes and it's not already in the startup string
 NUMA_FLAG=$(check_numa)
 if [[ -n "$NUMA_FLAG" ]] && [[ ! "$PARSED" =~ "UseNUMA" ]]; then
-    # Insert NUMA flag immediately after the 'java' command
     PARSED=$(echo "$PARSED" | sed -E "s/(^| )java/& $NUMA_FLAG/")
 fi
 
 # Display the final command for verification
+PARSED=$(echo "$PARSED" | tr -s ' ')
 printf "\033[1m\033[33mcontainer@pterodactyl~ \033[0m%s\n" "$PARSED"
 
 # Execute the process. 
