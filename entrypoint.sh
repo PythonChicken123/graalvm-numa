@@ -8,17 +8,18 @@ export TZ
 INTERNAL_IP=$(ip route get 1 | awk '{print $(NF-2);exit}')
 export INTERNAL_IP
 
-# Ensure the container user owns the home directory even if running as root
+# Ensure the container user owns the home directory
+# Even as root, we want the files to be accessible if permissions shift
 chown -R container:container /home/container 2>/dev/null
 
 # Switch to the container's working directory
 cd /home/container || exit 1
 
-# Print Java version
+# Print Java version for debugging
 printf "\033[1m\033[33mcontainer@pterodactyl~ \033[0mjava -version\n"
 java -version
 
-# Helper: check if NUMA is usable (returns "-XX:+UseNUMA" if available, else empty)
+# Helper: check if NUMA is usable via the helper script in /usr/local/bin
 check_numa() {
     if /usr/local/bin/check-numa 2>/dev/null; then
         echo "-XX:+UseNUMA"
@@ -30,7 +31,7 @@ check_numa() {
 # ---------- Malware Scan ----------
 if [[ "${MALWARE_SCAN}" == "1" ]]; then
     if [[ ! -f "/MCAntiMalware.jar" ]]; then
-        echo -e "\033[1m\033[33mcontainer@pterodactyl~ \033[0mMalware scanning is only available for Java 17 and above, skipping..."
+        echo -e "\033[1m\033[33mcontainer@pterodactyl~ \033[0mMalware scanning jar not found, skipping..."
     else
         echo -e "\033[1m\033[33mcontainer@pterodactyl~ \033[0mScanning for malware... (This may take a while)"
         java -jar /MCAntiMalware.jar --scanDirectory . --singleScan true --disableAutoUpdate true
@@ -48,12 +49,10 @@ fi
 # ---------- Automatic Updating ----------
 if [[ "${AUTOMATIC_UPDATING}" == "1" ]]; then
     if [[ "${SOFTWARE}" == "LEAF" ]]; then
-        # --- Leaf auto-update ---
         echo -e "\033[1m\033[33mcontainer@pterodactyl~ \033[0mChecking for Leaf updates..."
         MC_VERSION=""
         CURRENT_BUILD=""
 
-        # Parse version_history.json (format: {"currentVersion":"1.21.11-97-b2fa73c (MC: 1.21.11)"})
         if [ -f "version_history.json" ]; then
             RAW_VERSION=$(jq -r '.currentVersion // empty' version_history.json 2>/dev/null)
             if [[ -n "$RAW_VERSION" ]]; then
@@ -62,7 +61,6 @@ if [[ "${AUTOMATIC_UPDATING}" == "1" ]]; then
             fi
         fi
 
-        # Fallback to jar manifest
         if [[ -z "$MC_VERSION" || -z "$CURRENT_BUILD" ]]; then
             if [ -f "server.jar" ]; then
                 MANIFEST_VERSION=$(unzip -p server.jar META-INF/MANIFEST.MF 2>/dev/null | grep "Implementation-Version" | cut -d' ' -f2 | tr -d '\r')
@@ -73,9 +71,7 @@ if [[ "${AUTOMATIC_UPDATING}" == "1" ]]; then
             fi
         fi
 
-        if [[ -z "$MC_VERSION" ]]; then
-            echo -e "\033[1m\033[33mcontainer@pterodactyl~ \033[0mCould not determine current Leaf version, skipping update."
-        else
+        if [[ -n "$MC_VERSION" ]]; then
             API_RESPONSE=$(curl -s "https://api.leafmc.one/v2/projects/leaf/versions/${MC_VERSION}")
             LATEST_BUILD=$(echo "$API_RESPONSE" | jq -r '.builds | max // empty' 2>/dev/null)
             if [[ -n "$LATEST_BUILD" && "$LATEST_BUILD" != "null" ]]; then
@@ -87,12 +83,9 @@ if [[ "${AUTOMATIC_UPDATING}" == "1" ]]; then
                 else
                     echo -e "\033[1m\033[33mcontainer@pterodactyl~ \033[0mAlready on latest build (${CURRENT_BUILD})."
                 fi
-            else
-                echo -e "\033[1m\033[33mcontainer@pterodactyl~ \033[0mCould not fetch latest build info for ${MC_VERSION}."
             fi
         fi
     else
-        # --- MCJars auto-update (for Paper, Velocity, etc.) ---
         echo -e "\033[1m\033[33mcontainer@pterodactyl~ \033[0mChecking for MCJars updates..."
         if [ -f "server.jar" ]; then
             HASH=$(sha256sum server.jar | awk '{print $1}')
@@ -108,25 +101,30 @@ if [[ "${AUTOMATIC_UPDATING}" == "1" ]]; then
                 else
                     echo -e "\033[1m\033[33mcontainer@pterodactyl~ \033[0mAlready on latest build (${CURRENT_ID})."
                 fi
-            else
-                echo -e "\033[1m\033[33mcontainer@pterodactyl~ \033[0mCould not check for updates (invalid hash or API error)."
             fi
-        else
-            echo -e "\033[1m\033[33mcontainer@pterodactyl~ \033[0mserver.jar not found, skipping update."
         fi
     fi
 fi
 
 # ---------- Build the startup command ----------
-PARSED=$(echo "${STARTUP}" | sed -e 's/{{/${/g' -e 's/}}/}/g' | eval echo "$(cat -)")
 
-# Insert NUMA flag if available and not already present
+# Replace Pterodactyl variables {{VAR}} with shell variables ${VAR}
+MODIFIED_STARTUP=$(echo -e "${STARTUP}" | sed -e 's/{{/${/g' -e 's/}}/}/g')
+
+# Evaluate the string to resolve the environment variables
+PARSED=$(eval echo -e "${MODIFIED_STARTUP}")
+
+# Force NUMA flag insertion if check-numa passes and it's not already in the startup string
 NUMA_FLAG=$(check_numa)
-if [[ -n "$NUMA_FLAG" ]] && [[ ! "$PARSED" =~ UseNUMA ]]; then
+if [[ -n "$NUMA_FLAG" ]] && [[ ! "$PARSED" =~ "UseNUMA" ]]; then
+    # Insert NUMA flag immediately after the 'java' command
     PARSED=$(echo "$PARSED" | sed -E "s/(^| )java/& $NUMA_FLAG/")
 fi
 
-# Display and run
+# Display the final command for verification
 printf "\033[1m\033[33mcontainer@pterodactyl~ \033[0m%s\n" "$PARSED"
+
+# Execute the process. 
+# Avoid 'env' here to ensure the process retains all inherited Linux capabilities (like SYS_NICE)
 # shellcheck disable=SC2086
 exec ${PARSED}
