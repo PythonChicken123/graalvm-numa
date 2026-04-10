@@ -3,6 +3,7 @@
 # Environment: Java (GraalVM with NUMA support)
 # Minimum Panel Version: 1.7.0
 # Base: Debian Bookworm Slim
+# Permissions: Root
 # ----------------------------------
 FROM debian:bookworm-slim
 
@@ -54,9 +55,6 @@ RUN curl -L -o /MCAntiMalware.jar https://github.com/OpticFusion1/MCAntiMalware/
 
 # Step 2 - add pterodactyl user
 RUN useradd -d /home/container -m container
-
-USER container
-ENV USER=container HOME=/home/container
 
 WORKDIR /home/container
 
