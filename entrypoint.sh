@@ -8,6 +8,9 @@ export TZ
 INTERNAL_IP=$(ip route get 1 | awk '{print $(NF-2);exit}')
 export INTERNAL_IP
 
+# Ensure the container user owns the home directory even if running as root
+chown -R container:container /home/container 2>/dev/null
+
 # Switch to the container's working directory
 cd /home/container || exit 1
 
@@ -120,7 +123,7 @@ PARSED=$(echo "${STARTUP}" | sed -e 's/{{/${/g' -e 's/}}/}/g' | eval echo "$(cat
 # Insert NUMA flag if available and not already present
 NUMA_FLAG=$(check_numa)
 if [[ -n "$NUMA_FLAG" ]] && [[ ! "$PARSED" =~ UseNUMA ]]; then
-    PARSED=$(echo "$PARSED" | sed "s/java /java $NUMA_FLAG /")
+    PARSED=$(echo "$PARSED" | sed -E "s/(^| )java/& $NUMA_FLAG/")
 fi
 
 # Display and run
