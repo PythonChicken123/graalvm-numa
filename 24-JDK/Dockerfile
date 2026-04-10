@@ -54,10 +54,18 @@ RUN curl -L -o /MCAntiMalware.jar https://github.com/OpticFusion1/MCAntiMalware/
        fi
 
 # Step 2 - add pterodactyl user
-RUN useradd -d /home/container -m container
+# RUN useradd -d /home/container -m container
 
-WORKDIR /home/container
+# WORKDIR /home/container
+
+# COPY ./../entrypoint.sh /entrypoint.sh
+
+#CMD ["/bin/bash", "/entrypoint.sh"]
+
+# Ensure we stay as root for high-priority thread access
+USER root
 
 COPY ./../entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
 CMD ["/bin/bash", "/entrypoint.sh"]
