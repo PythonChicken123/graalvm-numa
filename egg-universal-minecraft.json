@@ -7,7 +7,7 @@
     "exported_at": "2026-04-04T17:00:00+00:00",
     "name": "UniversalMC GraalVM - NUMA",
     "author": "contact@echoruins.com",
-    "description": "Universal Minecraft server with GraalVM, LeafMC support, auto-updates, malware scan, and NUMA. Supports Leaf, UniversalSpigot (CUSTOM), Paper, Velocity, Vanilla, and other forks via MCJars API.",
+    "description": "Universal Minecraft server with GraalVM, LeafMC support, auto-updates, malware scan, and NUMA. Supports Leaf, UniverseSpigot (CUSTOM), Paper, Velocity, Vanilla, and other forks via MCJars API.",
     "features": [
         "eula",
         "java_version",
@@ -21,9 +21,38 @@
     "startup": "java -Dterminal.jline=false -Dterminal.ansi=true -Xms{{SERVER_MEMORY}}M -Xmx{{SERVER_MEMORY}}M {{ADDITIONAL_JVM_FLAGS}} -jar {{SERVER_JARFILE}} nogui",
     "config": {
         "files": "{}",
-        "startup": "{\r\n    \"done\": [\r\n        \")! For help, type \",\r\n        \"Listening on \/\",\r\n        \"Server started on\",\r\n        \"Limbo server listening on\",\r\n        \")! Run \/geyser help\",\r\n        \"Done (\",\r\n        \"Server started on\"\r\n    ]\r\n}",
+        "startup": "{\r\n    \"done\": [\r\n        \")! For help, type \",\r\n        \"Done (\"\r\n    ]\r\n}",
         "logs": "{}",
-        "stop": "^C"
+        "stop": "^C",
+        "docker_config": {
+            "privileged": true,
+            "cap_add": [
+                "SYS_NICE",
+                "SYS_RAWIO",
+                "IPC_LOCK"
+            ],
+            "security_opt": [
+                "seccomp=unconfined",
+                "apparmor=unconfined"
+            ],
+            "ulimits": [
+                {
+                    "name": "memlock",
+                    "soft": -1,
+                    "hard": -1
+                },
+                {
+                    "name": "nice",
+                    "soft": -20,
+                    "hard": -20
+                },
+                {
+                    "name": "rtprio",
+                    "soft": 99,
+                    "hard": 99
+                }
+            ]
+        }
     },
     "scripts": {
         "installation": {
