@@ -11,13 +11,19 @@ export INTERNAL_IP
 # Switch to the working directory
 cd /home/container || exit 1
 
+# Performance: Drop caches to ensure contiguous memory for HugePages/PreTouch
+# Requires the container to be running as root/privileged
+sync; echo 3 > /proc/sys/vm/drop_caches 2>/dev/null
+
 # Print Java version
 printf "\033[1m\033[33mcontainer@pterodactyl~ \033[0mjava -version\n"
 java -version
 
-# Helper: check if NUMA is usable
+# Helper: check if NUMA is usable (Crucial for Xanmod/GraalVM)
 check_numa() {
-    if /usr/local/bin/check-numa 2>/dev/null; then
+    if [ -f /usr/local/bin/check-numa ] && /usr/local/bin/check-numa 2>/dev/null; then
+        echo "-XX:+UseNUMA"
+    elif [ -d /sys/devices/system/node/node0 ]; then
         echo "-XX:+UseNUMA"
     else
         echo ""
@@ -107,20 +113,19 @@ fi
 # Replace Pterodactyl variables {{VAR}} with shell variables ${VAR}
 MODIFIED_STARTUP=$(echo -e "${STARTUP}" | sed -e 's/{{/${/g' -e 's/}}/}/g')
 
-# Evaluate the string to resolve the environment variables
+# Resolve the RAM calculation and environment variables
 PARSED=$(eval echo -e "${MODIFIED_STARTUP}")
 
-# Force NUMA flag insertion if check-numa passes and it's not already in the startup string
+# Inject NUMA flag for Xanmod optimization
 NUMA_FLAG=$(check_numa)
 if [[ -n "$NUMA_FLAG" ]] && [[ ! "$PARSED" =~ "UseNUMA" ]]; then
     PARSED=$(echo "$PARSED" | sed -E "s/(^| )java/& $NUMA_FLAG/")
 fi
 
-# Display the final command for verification
+# Clean up whitespace and display
 PARSED=$(echo "$PARSED" | tr -s ' ')
 printf "\033[1m\033[33mcontainer@pterodactyl~ \033[0m%s\n" "$PARSED"
 
-# Execute the process. 
-# Avoid 'env' here to ensure the process retains all inherited Linux capabilities (like SYS_NICE)
+# Execute the process directly to preserve Linux Capabilities (SYS_NICE, etc.)
 # shellcheck disable=SC2086
 exec ${PARSED}
