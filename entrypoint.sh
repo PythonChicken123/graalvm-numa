@@ -1,36 +1,35 @@
 #!/bin/bash
 
-# Default the TZ environment variable to UTC.
+# 1. Environment & Network Setup
 TZ=${TZ:-UTC}
 export TZ
-
-# Set environment variable that holds the Internal Docker IP
 INTERNAL_IP=$(ip route get 1 | awk '{print $(NF-2);exit}')
 export INTERNAL_IP
 
-# Switch to the working directory
+# Switch to working directory
 cd /home/container || exit 1
 
-# Performance: Drop caches to ensure contiguous memory for HugePages/PreTouch
-# Requires the container to be running as root/privileged
-sync; echo 3 > /proc/sys/vm/drop_caches 2>/dev/null
+# Performance: Ensure filesystem sync
+sync
 
-# Print Java version
 printf "\033[1m\033[33mcontainer@pterodactyl~ \033[0mjava -version\n"
 java -version
 
-# Helper: check if NUMA is usable (Crucial for Xanmod/GraalVM)
+# Helper: check if NUMA is usable via Dockerfile helper
 check_numa() {
-    if [ -f /usr/local/bin/check-numa ] && /usr/local/bin/check-numa 2>/dev/null; then
-        echo "-XX:+UseNUMA"
-    elif [ -d /sys/devices/system/node/node0 ]; then
+    if /usr/local/bin/check-numa 2>/dev/null; then
         echo "-XX:+UseNUMA"
     else
-        echo ""
+        # Fallback check for the library link creation
+        if [ -f /usr/lib/x86_64-linux-gnu/libnuma.so ] || [ -f /usr/lib/aarch64-linux-gnu/libnuma.so ]; then
+            echo "-XX:+UseNUMA"
+        else
+            echo ""
+        fi
     fi
 }
 
-# ---------- Malware Scan ----------
+# 2. ---------- Malware Scan ----------
 if [[ "${MALWARE_SCAN}" == "1" ]]; then
     if [[ ! -f "/MCAntiMalware.jar" ]]; then
         echo -e "\033[1m\033[33mcontainer@pterodactyl~ \033[0mMalware scanning jar not found, skipping..."
@@ -48,7 +47,7 @@ else
     echo -e "\033[1m\033[33mcontainer@pterodactyl~ \033[0mSkipping malware scan..."
 fi
 
-# ---------- Automatic Updating ----------
+# 3. ---------- Automatic Updating (Leaf & MCJars) ----------
 if [[ "${AUTOMATIC_UPDATING}" == "1" ]]; then
     if [[ "${SOFTWARE}" == "LEAF" ]]; then
         echo -e "\033[1m\033[33mcontainer@pterodactyl~ \033[0mChecking for Leaf updates..."
@@ -81,9 +80,6 @@ if [[ "${AUTOMATIC_UPDATING}" == "1" ]]; then
                     echo -e "\033[1m\033[33mcontainer@pterodactyl~ \033[0mNew Leaf build found (${LATEST_BUILD}), updating..."
                     DOWNLOAD_URL="https://api.leafmc.one/v2/projects/leaf/versions/${MC_VERSION}/builds/${LATEST_BUILD}/downloads/leaf-${MC_VERSION}-${LATEST_BUILD}.jar"
                     curl -s -o server.jar "$DOWNLOAD_URL"
-                    echo -e "\033[1m\033[33mcontainer@pterodactyl~ \033[0mUpdate complete."
-                else
-                    echo -e "\033[1m\033[33mcontainer@pterodactyl~ \033[0mAlready on latest build (${CURRENT_BUILD})."
                 fi
             fi
         fi
@@ -94,38 +90,33 @@ if [[ "${AUTOMATIC_UPDATING}" == "1" ]]; then
             API_RESPONSE=$(curl -s "https://mcjars.app/api/v1/build/$HASH")
             SUCCESS=$(echo "$API_RESPONSE" | jq -r '.success // false')
             if [[ "$SUCCESS" == "true" ]]; then
-                CURRENT_ID=$(echo "$API_RESPONSE" | jq -r '.build.id')
                 LATEST_ID=$(echo "$API_RESPONSE" | jq -r '.latest.id')
-                if [[ -n "$CURRENT_ID" && -n "$LATEST_ID" && "$CURRENT_ID" != "$LATEST_ID" ]]; then
-                    echo -e "\033[1m\033[33mcontainer@pterodactyl~ \033[0mNew build found (${LATEST_ID}), updating..."
+                if [[ $(echo "$API_RESPONSE" | jq -r '.build.id') != "$LATEST_ID" ]]; then
+                    echo -e "\033[1m\033[33mcontainer@pterodactyl~ \033[0mUpdating to latest build (${LATEST_ID})..."
                     bash <(curl -s "https://mcjars.app/api/v1/script/$LATEST_ID/bash?echo=false")
-                    echo -e "\033[1m\033[33mcontainer@pterodactyl~ \033[0mUpdate complete."
-                else
-                    echo -e "\033[1m\033[33mcontainer@pterodactyl~ \033[0mAlready on latest build (${CURRENT_ID})."
                 fi
             fi
         fi
     fi
 fi
 
-# ---------- Build the startup command ----------
-
+# 4. ---------- Startup Command Construction ----------
 # Replace Pterodactyl variables {{VAR}} with shell variables ${VAR}
 MODIFIED_STARTUP=$(echo -e "${STARTUP}" | sed -e 's/{{/${/g' -e 's/}}/}/g')
 
-# Resolve the RAM calculation and environment variables
+# Evaluate the string to resolve the environment variables (including RAM math)
 PARSED=$(eval echo -e "${MODIFIED_STARTUP}")
 
-# Inject NUMA flag for Xanmod optimization
+# Inject NUMA flag if supported/detected
 NUMA_FLAG=$(check_numa)
 if [[ -n "$NUMA_FLAG" ]] && [[ ! "$PARSED" =~ "UseNUMA" ]]; then
     PARSED=$(echo "$PARSED" | sed -E "s/(^| )java/& $NUMA_FLAG/")
 fi
 
-# Clean up whitespace and display
+# Display the final command
 PARSED=$(echo "$PARSED" | tr -s ' ')
 printf "\033[1m\033[33mcontainer@pterodactyl~ \033[0m%s\n" "$PARSED"
 
-# Execute the process directly to preserve Linux Capabilities (SYS_NICE, etc.)
-# shellcheck disable=SC2086
+# 5. ---------- Execution ----------
+# exec ensures the Java process takes over PID 1, crucial for Xanmod priority handling
 exec ${PARSED}
