@@ -39,7 +39,10 @@ RUN apt-get update -y \
     && rm -rf /var/lib/apt/lists/* \
     && rm -rf /tmp/graalvm.tar.gz
 
-RUN ln -s /usr/lib/x86_64-linux-gnu/libnuma.so.1 /usr/lib/x86_64-linux-gnu/libnuma.so
+RUN export LIB_DIR=$(ls -d /usr/lib/*-linux-gnu | head -n 1) && \
+    if [ -f "${LIB_DIR}/libnuma.so.1" ]; then \
+        ln -s ${LIB_DIR}/libnuma.so.1 ${LIB_DIR}/libnuma.so; \
+    fi
 
 ENV JAVA_HOME=/opt/java/graalvm \
     PATH="/opt/java/graalvm/bin:$PATH"
