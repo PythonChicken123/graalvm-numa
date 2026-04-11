@@ -1,31 +1,23 @@
 #!/bin/bash
 
-# 1. Environment & Network Setup
 TZ=${TZ:-UTC}
 export TZ
 INTERNAL_IP=$(ip route get 1 | awk '{print $(NF-2);exit}')
 export INTERNAL_IP
 
-# Switch to working directory
 cd /home/container || exit 1
 
-# Performance: Ensure filesystem sync
 sync
 
 printf "\033[1m\033[33mcontainer@pterodactyl~ \033[0mjava -version\n"
 java -version
 
-# Helper: check if NUMA is usable via Dockerfile helper
+# Helper: check if NUMA is usable
 check_numa() {
     if /usr/local/bin/check-numa 2>/dev/null; then
         echo "-XX:+UseNUMA"
     else
-        # Fallback check for the library link creation
-        if [ -f /usr/lib/x86_64-linux-gnu/libnuma.so ] || [ -f /usr/lib/aarch64-linux-gnu/libnuma.so ]; then
-            echo "-XX:+UseNUMA"
-        else
-            echo ""
-        fi
+        echo ""
     fi
 }
 
@@ -101,22 +93,15 @@ if [[ "${AUTOMATIC_UPDATING}" == "1" ]]; then
 fi
 
 # 4. ---------- Startup Command Construction ----------
-# Replace Pterodactyl variables {{VAR}} with shell variables ${VAR}
 MODIFIED_STARTUP=$(echo -e "${STARTUP}" | sed -e 's/{{/${/g' -e 's/}}/}/g')
-
-# Evaluate the string to resolve the environment variables (including RAM math)
 PARSED=$(eval echo -e "${MODIFIED_STARTUP}")
 
-# Inject NUMA flag if supported/detected
 NUMA_FLAG=$(check_numa)
 if [[ -n "$NUMA_FLAG" ]] && [[ ! "$PARSED" =~ "UseNUMA" ]]; then
     PARSED=$(echo "$PARSED" | sed -E "s/(^| )java/& $NUMA_FLAG/")
 fi
 
-# Display the final command
 PARSED=$(echo "$PARSED" | tr -s ' ')
 printf "\033[1m\033[33mcontainer@pterodactyl~ \033[0m%s\n" "$PARSED"
 
-# 5. ---------- Execution ----------
-# exec ensures the Java process takes over PID 1, crucial for Xanmod priority handling
 exec ${PARSED}
